@@ -1,5 +1,5 @@
 Confidence score and accordingly answer for mannual checking using api - if cs <85 = put in mannual for ocr or answers 
-upload folder with answers as id_studentname and save answer in google sheet / database
+upload folder with answers as id_studentname and save answer in google sheet / database - select all the pdf from the folder
 when clicking on another card, current card data is not visible 
 login/signup
 ui/ux improvements
