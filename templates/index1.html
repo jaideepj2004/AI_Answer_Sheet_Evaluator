@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Answer Sheet Evaluation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Modern dark theme with gradient accents */
+    :root {
+      --primary: #2efb85;
+      --secondary: #1dc060;
+      --accent: #81ff9c;
+      --dark-bg: #0f0f0f;
+      --darker-bg: #0a0a0a;
+      --card-bg: #1a1a1a;
+      --text: #e0e0e0;
+      --text-light: #f0f0f0;
+      --border: #333;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
+      background: var(--dark-bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 20px;
+      background-image: radial-gradient(circle at 10% 20%, rgba(20, 40, 20, 0.2) 0%, rgba(0, 0, 0, 0) 50%);
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    
+    .glow-title {
+      font-size: 2.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 15px rgba(46, 251, 133, 0.3);
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+    
+    .subtitle {
+      color: var(--accent);
+      font-size: 1.2rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    .app-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    
+    @media (max-width: 900px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .panel {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+    }
+    
+    h2 {
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    h2 i {
+      font-size: 1.4rem;
+    }
+    
+    .question-group {
+      background: rgba(30, 30, 30, 0.7);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    
+    .hint {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: 4px;
+    }
+    
+    textarea, input[type="number"], input[type="text"] {
+      width: 100%;
+      background: rgba(20, 20, 20, 0.6);
+      border: 1px solid var(--border);
+      color: var(--text-light);
+      padding: 12px 15px;
+      font-size: 16px;
+      border-radius: 10px;
+      margin-top: 8px;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    textarea:focus, input:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(46, 251, 133, 0.2);
+    }
+    
+    input[type="file"] {
+      width: 100%;
+      margin-top: 10px;
+      color: #ccc;
+      padding: 10px;
+      background: rgba(20, 20, 20, 0.6);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 25px;
+      flex-wrap: wrap;
+    }
+    
+    button {
+      background: linear-gradient(145deg, var(--primary), var(--secondary));
+      color: #000;
+      font-weight: bold;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 15px rgba(46, 251, 133, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 200px;
+      justify-content: center;
+    }
+    
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(46, 251, 133, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(1px);
+    }
+    
+    .btn-secondary {
+      background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+      color: var(--text);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .btn-secondary:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(145deg, #ff4d4d, #cc0000);
+      box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3);
+    }
+    
+    .result-container {
+      margin-top: 30px;
+    }
+    
+    #result {
+      background: rgba(20, 30, 20, 0.4);
+      padding: 25px;
+      border-radius: 14px;
+      border: 1px solid rgba(46, 251, 133, 0.3);
+      box-shadow: inset 0 0 20px rgba(46, 251, 133, 0.1);
+      white-space: pre-wrap;
+      color: var(--text-light);
+      font-size: 16px;
+      line-height: 1.7;
+      min-height: 200px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    
+    .result-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      color: var(--accent);
+    }
+    
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .question-title {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    
+    .question-id {
+      background: rgba(46, 251, 133, 0.15);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+    
+    .question-content {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    
+    .question-rubric {
+      margin-top: 10px;
+      padding: 12px;
+      background: rgba(30, 40, 30, 0.4);
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+    }
+    
+    .question-result {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(20, 30, 40, 0.4);
+      border-radius: 8px;
+      border: 1px solid rgba(46, 251, 133, 0.3);
+    }
+    
+    .overall-score {
+      background: linear-gradient(135deg, rgba(46, 251, 133, 0.1), rgba(129, 255, 156, 0.05));
+      border: 2px solid var(--primary);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 4px 15px rgba(46, 251, 133, 0.2);
+    }
+    
+    .score-header h3 {
+      color: var(--primary);
+      margin: 0 0 15px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.3rem;
+    }
+    
+    .score-details {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    
+    .score-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      border-left: 3px solid var(--primary);
+    }
+    
+    .score-label {
+      font-weight: 600;
+      color: var(--accent);
+    }
+    
+    .score-value {
+      font-weight: bold;
+      color: var(--text-light);
+      font-size: 1.1rem;
+    }
+    
+    .score-value.percentage {
+      color: var(--primary);
+      font-size: 1.2rem;
+    }
+    
+    .single-score {
+      background: rgba(46, 251, 133, 0.1);
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .single-score .score-item {
+      flex: 1;
+      min-width: 150px;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+    
+    .status-success {
+      background: rgba(46, 251, 133, 0.15);
+      color: var(--primary);
+    }
+    
+    .status-error {
+      background: rgba(255, 77, 77, 0.15);
+      color: #ff4d4d;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(46, 251, 133, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .tab-container {
+      margin-top: 20px;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 12px 25px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+    
+    .tab.active {
+      border-bottom: 3px solid var(--primary);
+      color: var(--accent);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .question-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding: 20px;
+      color: #777;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1 class="glow-title">AI Answer Sheet Evaluation</h1>
+      <p class="subtitle">Automated grading solution using OCR and AI for PDF answer sheets and handwritten responses</p>
+    </header>
+    
+    <div class="app-container">
+      <!-- Left Panel - Configuration -->
+      <div class="panel">
+        <h2><i class="fas fa-cog"></i> Grading Configuration</h2>
+        
+        <div class="tabs">
+          <div class="tab active" data-tab="single">Single Question</div>
+          <div class="tab" data-tab="multiple">Multiple Questions</div>
+        </div>
+        
+        <div class="tab-content active" id="single-tab">
+          <label for="question">Question</label>
+          <textarea id="question" placeholder="Enter the question text..."></textarea>
+          
+          <label for="rubric">Rubric</label>
+          <textarea id="rubric" placeholder="Specify grading criteria point by point..."></textarea>
+          
+          <label for="max_marks">Max Marks</label>
+          <input type="number" id="max_marks" min="1" value="10" />
+          
+          <label for="prompt">Evaluation Prompt</label>
+          <textarea id="prompt" placeholder="e.g., Give full marks for correct explanation, partial for keywords, zero if off-topic."></textarea>
+          
+          <div class="btn-group">
+            <button onclick="setMetadata()">
+              <i class="fas fa-save"></i> Save Configuration
+            </button>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="multiple-tab">
+          <div id="questions-container">
+            <div class="question-group">
+              <div class="question-header">
+                <div class="question-title">Question 1</div>
+                <div class="question-id">Q1</div>
+              </div>
+              
+              <label for="question-id-1">Question ID</label>
+              <input type="text" id="question-id-1" value="Q1" />
+              
+              <label for="question-1">Question</label>
+              <textarea id="question-1" placeholder="Question text..."></textarea>
+              
+              <label for="rubric-1">Rubric</label>
+              <textarea id="rubric-1" placeholder="Grading criteria..."></textarea>
+              
+              <label for="max_marks-1">Max Marks</label>
+              <input type="number" id="max_marks-1" value="5" />
+              
+              <label for="prompt-1">Evaluation Prompt (Optional)</label>
+              <textarea id="prompt-1" placeholder="Question-specific instructions..."></textarea>
+            </div>
+          </div>
+          
+          <div class="btn-group">
+            <button onclick="addQuestion()">
+              <i class="fas fa-plus"></i> Add Question
+            </button>
+            <button onclick="setMetadata()" class="btn-secondary">
+              <i class="fas fa-save"></i> Save All Questions
+            </button>
+          </div>
+          
+          <label for="general-prompt">General Evaluation Prompt</label>
+          <textarea id="general-prompt" placeholder="Instructions that apply to all questions..."></textarea>
+        </div>
+      </div>
+      
+      <!-- Right Panel - Grading -->
+      <div class="panel">
+        <h2><i class="fas fa-check-circle"></i> Evaluate Answers</h2>
+        
+        <div class="tabs">
+          <div class="tab active" data-tab="text">Text Answer</div>
+          <div class="tab" data-tab="image">Image Upload</div>
+          <div class="tab" data-tab="pdf">PDF Answer Sheet</div>
+        </div>
+        
+        <div class="tab-content active" id="text-tab">
+          <label for="student-answer">Student Answer</label>
+          <textarea id="student-answer" placeholder="Paste student's answer here..."></textarea>
+          
+          <div class="btn-group">
+            <button onclick="gradeText()">
+              <i class="fas fa-graduation-cap"></i> Grade Answer
+            </button>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="image-tab">
+          <label for="image_input">Upload Answer Image</label>
+          <input type="file" id="image_input" accept="image/*" />
+          <p class="hint">Supports JPEG, PNG, or photos of handwritten answers</p>
+          
+          <div class="btn-group">
+            <button onclick="uploadImage()">
+              <i class="fas fa-upload"></i> Upload & Grade
+            </button>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="pdf-tab">
+          <label for="pdf_input">Upload Answer Sheet (PDF)</label>
+          <input type="file" id="pdf_input" accept=".pdf" />
+          <p class="hint">Upload scanned PDF answer sheets for automated grading</p>
+          
+          <div class="btn-group">
+            <button onclick="uploadPDF()">
+              <i class="fas fa-file-pdf"></i> Grade PDF Answer Sheet
+            </button>
+          </div>
+        </div>
+        
+        <div class="result-container">
+          <div class="result-title">
+            <i class="fas fa-poll"></i> Grading Results
+          </div>
+          <div id="result">✨ Results will appear here after grading...</div>
+        </div>
+      </div>
+    </div>
+    
+    <footer>
+      <p>AI Answer Sheet Evaluation System • Powered by OCR and AI Grading</p>
+      <p>For educational purposes only</p>
+    </footer>
+  </div>
+
+  <script>
+    // Tab switching functionality
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabType = tab.getAttribute('data-tab');
+        
+        // Update tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        document.getElementById(`${tabType}-tab`).classList.add('active');
+      });
+    });
+    
+    // Question management
+    let questionCount = 1;
+    
+    function addQuestion() {
+      questionCount++;
+      const container = document.getElementById('questions-container');
+      const newQuestion = document.createElement('div');
+      newQuestion.className = 'question-group';
+      newQuestion.innerHTML = `
+        <div class="question-header">
+          <div class="question-title">Question ${questionCount}</div>
+          <div class="question-id">Q${questionCount}</div>
+        </div>
+        
+        <label for="question-id-${questionCount}">Question ID</label>
+        <input type="text" id="question-id-${questionCount}" value="Q${questionCount}" />
+        
+        <label for="question-${questionCount}">Question</label>
+        <textarea id="question-${questionCount}" placeholder="Question text..."></textarea>
+        
+        <label for="rubric-${questionCount}">Rubric</label>
+        <textarea id="rubric-${questionCount}" placeholder="Grading criteria..."></textarea>
+        
+        <label for="max_marks-${questionCount}">Max Marks</label>
+        <input type="number" id="max_marks-${questionCount}" value="5" />
+        
+        <label for="prompt-${questionCount}">Evaluation Prompt (Optional)</label>
+        <textarea id="prompt-${questionCount}" placeholder="Question-specific instructions..."></textarea>
+        
+        <div class="question-actions">
+          <button onclick="removeQuestion(this)" class="btn-danger">
+            <i class="fas fa-trash"></i> Remove Question
+          </button>
+        </div>
+      `;
+      container.appendChild(newQuestion);
+    }
+    
+    function removeQuestion(button) {
+      if (questionCount <= 1) {
+        alert("You need at least one question!");
+        return;
+      }
+      
+      const questionGroup = button.closest('.question-group');
+      questionGroup.remove();
+      questionCount--;
+    }
+    
+    // Set metadata for grading
+    async function setMetadata() {
+      const activeTab = document.querySelector('.tab[data-tab].active').getAttribute('data-tab');
+      let data = {};
+      
+      if (activeTab === 'single') {
+        data = {
+          question: document.getElementById('question').value,
+          rubric: document.getElementById('rubric').value,
+          max_marks: document.getElementById('max_marks').value,
+          prompt: document.getElementById('prompt').value
+        };
+      } else {
+        const questions = [];
+        for (let i = 1; i <= questionCount; i++) {
+          const idElem = document.getElementById(`question-id-${i}`);
+          const questionElem = document.getElementById(`question-${i}`);
+          const rubricElem = document.getElementById(`rubric-${i}`);
+          const maxMarksElem = document.getElementById(`max_marks-${i}`);
+          const promptElem = document.getElementById(`prompt-${i}`);
+          
+          if (idElem && questionElem && rubricElem && maxMarksElem) {
+            questions.push({
+              id: idElem.value,
+              question: questionElem.value,
+              rubric: rubricElem.value,
+              max_marks: maxMarksElem.value,
+              prompt: promptElem.value
+            });
+          }
+        }
+        
+        data = {
+          questions: questions,
+          general_prompt: document.getElementById('general-prompt').value
+        };
+      }
+      
+      // Show loading
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="loading"></div> Saving configuration...';
+      
+      try {
+        const response = await fetch("/set-meta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        
+        const res = await response.json();
+        resultDiv.innerHTML = `<span class="status-success">✅ ${res.status || "Metadata saved successfully!"}</span>`;
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="status-error">❌ Error saving configuration: ${err.message}</span>`;
+      }
+    }
+    
+    // Grade text answer
+    async function gradeText() {
+      const studentAnswer = document.getElementById('student-answer').value.trim();
+      if (!studentAnswer) {
+        alert("Please enter a student answer to grade.");
+        return;
+      }
+      
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="loading"></div> Grading answer...';
+      
+      try {
+        const response = await fetch("/grade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ student_answer: studentAnswer })
+        });
+        
+        const res = await response.json();
+        displayResult(res);
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="status-error">❌ Error grading answer: ${err.message}</span>`;
+      }
+    }
+    
+    // Upload and grade image
+    async function uploadImage() {
+      const fileInput = document.getElementById('image_input');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("Please select an image file first.");
+        return;
+      }
+      
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="loading"></div> Processing image...';
+      
+      const formData = new FormData();
+      formData.append("image", fileInput.files[0]);
+      
+      try {
+        const response = await fetch("/extract-text", {
+          method: "POST",
+          body: formData
+        });
+        
+        const res = await response.json();
+        displayResult(res);
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="status-error">❌ Error processing image: ${err.message}</span>`;
+      }
+    }
+    
+    // Upload and grade PDF
+    async function uploadPDF() {
+      const fileInput = document.getElementById('pdf_input');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("Please select a PDF file first.");
+        return;
+      }
+      
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<div class="loading"></div> Processing PDF...';
+      
+      const formData = new FormData();
+      formData.append("pdf", fileInput.files[0]);
+      
+      try {
+        const response = await fetch("/grade-pdf", {
+          method: "POST",
+          body: formData
+        });
+        
+        const res = await response.json();
+        displayResult(res);
+      } catch (err) {
+        resultDiv.innerHTML = `<span class="status-error">❌ Error processing PDF: ${err.message}</span>`;
+      }
+    }
+    
+    // Display results from grading
+    function displayResult(result) {
+      const resultDiv = document.getElementById('result');
+      
+      if (result.error) {
+        resultDiv.innerHTML = `<span class="status-error">❌ ${result.error}</span>`;
+        return;
+      }
+      
+      // Handle PDF results (multiple questions)
+      if (result.results) {
+        let html = '<div class="result-title"><i class="fas fa-file-alt"></i> PDF Grading Results</div>';
+        
+        // Add overall score summary if available
+        if (result.overall_score) {
+          const score = result.overall_score;
+          html += `
+            <div class="overall-score">
+              <div class="score-header">
+                <h3><i class="fas fa-chart-bar"></i> Overall Performance</h3>
+              </div>
+              <div class="score-details">
+                <div class="score-item">
+                  <span class="score-label">Total Marks:</span>
+                  <span class="score-value">${score.total_marks_obtained}/${score.total_max_marks}</span>
+                </div>
+                <div class="score-item">
+                  <span class="score-label">Percentage:</span>
+                  <span class="score-value percentage">${score.percentage}%</span>
+                </div>
+                <div class="score-item">
+                  <span class="score-label">Grade Summary:</span>
+                  <span class="score-value">${score.grade_summary}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        
+        result.results.forEach(item => {
+          html += `
+            <div class="question-result">
+              <div class="question-header">
+                <div class="question-title">Question ${item.question_id}</div>
+                <div class="question-id">
+                  ${item.marks_obtained || 0}/${item.max_marks || 0} marks
+                </div>
+              </div>
+              <div class="question-content">${item.answer || 'No answer found'}</div>
+              <div class="question-rubric">
+                <strong>Evaluation:</strong>
+                <div>${item.result.replace(/\n/g, '<br>')}</div>
+              </div>
+            </div>
+          `;
+        });
+        
+        resultDiv.innerHTML = html;
+      } 
+      // Handle single result
+      else if (result.result) {
+        let html = `
+          <div class="result-title"><i class="fas fa-check-circle"></i> Grading Result</div>
+        `;
+        
+        // Add marks summary if available
+        if (result.marks_obtained !== undefined && result.max_marks !== undefined) {
+          html += `
+            <div class="single-score">
+              <div class="score-item">
+                <span class="score-label">Marks Obtained:</span>
+                <span class="score-value">${result.marks_obtained}/${result.max_marks}</span>
+              </div>
+              ${result.grade_summary ? `
+                <div class="score-item">
+                  <span class="score-label">Grade:</span>
+                  <span class="score-value">${result.grade_summary}</span>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+        
+        html += `<div class="question-content">${result.result.replace(/\n/g, '<br>')}</div>`;
+        resultDiv.innerHTML = html;
+      } else {
+        resultDiv.innerHTML = `<span class="status-error">❌ Unexpected response format</span>`;
+      }
+    }
+    
+    // Initialize with sample data for demo
+    window.onload = function() {
+      // Set sample metadata
+      document.getElementById('question').value = "Explain the process of photosynthesis in plants.";
+      document.getElementById('rubric').value = "1. Mention sunlight - 1pt\n2. Mention CO2 - 1pt\n3. Mention water - 1pt\n4. Mention glucose production - 1pt\n5. Mention oxygen byproduct - 1pt";
+      document.getElementById('max_marks').value = "5";
+      document.getElementById('prompt').value = "Grade strictly based on rubric. Deduct points for missing elements.";
+      
+      // Set sample multiple questions
+      document.getElementById('question-1').value = "What is Newton's first law of motion?";
+      document.getElementById('rubric-1').value = "1. Correct definition - 2pts\n2. Mention inertia - 1pt";
+      document.getElementById('max_marks-1').value = "3";
+      
+      document.getElementById('general-prompt').value = "Ignore spelling mistakes. Award partial credit where appropriate.";
+    };
+  </script>
+</body>
