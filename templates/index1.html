@@ -637,6 +637,7 @@
             <div class="tab active" data-tab="text">Text Answer</div>
             <div class="tab" data-tab="image">Image Upload</div>
             <div class="tab" data-tab="pdf">PDF Answer Sheet</div>
+            <div class="tab" data-tab="pdf-folder">Batch PDF Folder</div>
           </div>
 
           <div class="tab-content active" id="text-tab">
@@ -668,6 +669,98 @@
           </div>
 
           <div class="tab-content" id="pdf-tab">
+            <label for="pdf_input">Upload Answer Sheet (PDF)</label>
+            <input type="file" id="pdf_input" accept=".pdf" />
+            <p class="hint">
+              Upload scanned PDF answer sheets for automated grading
+            </p>
+            <div class="btn-group">
+              <button onclick="uploadPDF()">
+                <i class="fas fa-file-pdf"></i> Grade PDF Answer Sheet
+              </button>
+            </div>
+          </div>
+
+          <div class="tab-content" id="pdf-folder-tab">
+            <label for="pdf_folder_input">Upload Folder of PDFs (ZIP)</label>
+            <input type="file" id="pdf_folder_input" accept=".zip" />
+            <p class="hint">
+              Upload a ZIP file containing multiple PDF answer sheets. Each PDF will be graded and results shown by file name.
+            </p>
+            <div class="btn-group">
+              <button onclick="uploadPDFFolder()">
+                <i class="fas fa-folder-open"></i> Grade PDF Folder
+              </button>
+            </div>
+          </div>
+    <script>
+      // Upload and grade PDF folder (batch)
+      async function uploadPDFFolder() {
+        const fileInput = document.getElementById("pdf_folder_input");
+        if (!fileInput.files || fileInput.files.length === 0) {
+          alert("Please select a ZIP file containing PDFs.");
+          return;
+        }
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = '<div class="loading"></div> Processing PDF folder...';
+        const formData = new FormData();
+        formData.append("pdf_folder", fileInput.files[0]);
+        try {
+          const response = await fetch("/grade-pdf-folder", {
+            method: "POST",
+            body: formData,
+          });
+          const res = await response.json();
+          displayBatchResult(res);
+        } catch (err) {
+          resultDiv.innerHTML = `<span class="status-error">❌ Error processing PDF folder: ${err.message}</span>`;
+        }
+      }
+
+      // Display results for batch PDF grading
+      function displayBatchResult(result) {
+        const resultDiv = document.getElementById("result");
+        if (result.error) {
+          resultDiv.innerHTML = `<span class="status-error">❌ ${result.error}</span>`;
+          return;
+        }
+        if (result.pdf_results) {
+          let html = '<div class="result-title"><i class="fas fa-folder"></i> Batch PDF Grading Results</div>';
+          for (const [pdfName, pdfResult] of Object.entries(result.pdf_results)) {
+            html += `<div class="batch-pdf-result"><h4><i class="fas fa-file-pdf"></i> ${pdfName}</h4>`;
+            if (pdfResult.error) {
+              html += `<span class="status-error">❌ ${pdfResult.error}</span></div>`;
+              continue;
+            }
+            if (pdfResult.overall_score) {
+              const score = pdfResult.overall_score;
+              html += `<div class="overall-score"><div class="score-header"><strong>Overall:</strong></div><div class="score-details"><span class="score-label">Total Marks:</span> <span class="score-value">${score.total_marks_obtained}/${score.total_max_marks}</span> <span class="score-label">Percentage:</span> <span class="score-value percentage">${score.percentage}%</span> <span class="score-label">Grade Summary:</span> <span class="score-value">${score.grade_summary}</span></div></div>`;
+            }
+            if (pdfResult.results) {
+              pdfResult.results.forEach((item) => {
+                html += `<div class="question-result"><div class="question-header"><div class="question-title">Question ${item.question_id}</div><div class="question-id">${item.marks_obtained || 0}/${item.max_marks || 0} marks</div></div><div class="question-content">${item.answer || "No answer found"}</div><div class="question-rubric"><strong>Evaluation:</strong><div>${item.result.replace(/\n/g, "<br>")}</div></div></div>`;
+              });
+            }
+            html += '</div>';
+          }
+          resultDiv.innerHTML = html;
+        } else {
+          resultDiv.innerHTML = '<span class="status-error">❌ No results found.</span>';
+        }
+      }
+
+      // Tab switching: only one tab-content active at a time
+      document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+          const tabName = this.getAttribute('data-tab');
+          const tabContent = document.getElementById(tabName + '-tab');
+          if (tabContent) tabContent.classList.add('active');
+        });
+      });
+    </script>
             <label for="pdf_input">Upload Answer Sheet (PDF)</label>
             <input type="file" id="pdf_input" accept=".pdf" />
             <p class="hint">
