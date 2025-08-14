@@ -1,7 +1,10 @@
+# Add missing import for os
+import os
 # does not gemini api , do not segregate answers properly
 from flask import Flask, request, jsonify, render_template
 import gspread
 from google.oauth2.service_account import Credentials
+import os
 
 GOOGLE_SHEET_ID = "1_YivMP4BLP-EfkuuSG81ne26tSuB-qCvR4byRjvsCxM"  # Set this in your environment or hardcode for now
 SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "service_account.json")
@@ -33,7 +36,6 @@ def save_results_to_sheet(sheet_name, rows):
 
 from PIL import Image
 import requests
-import os
 import re
 import tempfile
 from pdf2image import convert_from_path
