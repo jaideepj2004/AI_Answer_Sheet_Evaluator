@@ -1,5 +1,36 @@
 # does not gemini api , do not segregate answers properly
 from flask import Flask, request, jsonify, render_template
+import gspread
+from google.oauth2.service_account import Credentials
+
+GOOGLE_SHEET_ID = "1_YivMP4BLP-EfkuuSG81ne26tSuB-qCvR4byRjvsCxM"  # Set this in your environment or hardcode for now
+SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "service_account.json")
+
+
+# Google Sheets helper
+def save_results_to_sheet(sheet_name, rows):
+    if not GOOGLE_SHEET_ID:
+        print("No GOOGLE_SHEET_ID set, skipping Google Sheets write.")
+        return
+    try:
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=scopes
+        )
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        try:
+            worksheet = sh.worksheet(sheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = sh.add_worksheet(title=sheet_name, rows="100", cols="20")
+        worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+    except Exception as e:
+        print(f"Error writing to Google Sheet: {e}")
+
+
 from PIL import Image
 import requests
 import os
@@ -357,6 +388,22 @@ def grade_pdf():
             f"Total marks obtained: {total_marks_obtained} out of {total_max_marks} ({percentage:.1f}%)"
         )
 
+        # Save to Google Sheet
+        sheet_rows = [
+            [
+                "PDF Upload",
+                question["id"],
+                question["question"],
+                r["answer"],
+                r["marks_obtained"],
+                r["max_marks"],
+                r["result"],
+                round(percentage, 2),
+            ]
+            for question, r in zip(meta_data["questions"], results)
+        ]
+        save_results_to_sheet("PDF Results", sheet_rows)
+
         return jsonify(
             {
                 "results": results,
@@ -701,6 +748,21 @@ def grade_pdf_folder():
                         "grade_summary": f"{total_marks_obtained}/{total_max_marks} ({percentage:.1f}%)",
                     },
                 }
+                # Save to Google Sheet for each PDF
+                sheet_rows = [
+                    [
+                        os.path.basename(pdf_path),
+                        question["id"],
+                        question["question"],
+                        r["answer"],
+                        r["marks_obtained"],
+                        r["max_marks"],
+                        r["result"],
+                        round(percentage, 2),
+                    ]
+                    for question, r in zip(meta_data["questions"], results)
+                ]
+                save_results_to_sheet("Batch PDF Results", sheet_rows)
             except Exception as e:
                 all_results[os.path.basename(pdf_path)] = {
                     "error": f"Processing failed: {str(e)}"
