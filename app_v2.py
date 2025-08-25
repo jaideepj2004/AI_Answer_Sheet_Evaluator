@@ -1,5 +1,8 @@
+# In-memory manual checking list
+manual_checking_pdfs = []
 # Add missing import for os
 import os
+
 # does not gemini api , do not segregate answers properly
 from flask import Flask, request, jsonify, render_template
 import gspread
@@ -470,7 +473,7 @@ def ocr_space_api(image_path, api_key):
                 data={
                     "apikey": api_key,
                     "language": "eng",
-                    "isOverlayRequired": False,
+                    "isOverlayRequired": True,  # Needed for confidence
                     "ocrengine": 2,
                 },
                 timeout=30,
@@ -480,19 +483,32 @@ def ocr_space_api(image_path, api_key):
         if result.get("IsErroredOnProcessing"):
             error_msg = result.get("ErrorMessage", "Unknown OCR error")
             print(f"❌ OCR.Space Error: {error_msg}")
-            return ""
+            return "", 0
 
         parsed_results = result.get("ParsedResults", [])
         if not parsed_results or "ParsedText" not in parsed_results[0]:
             print("❌ OCR returned no text")
-            return ""
+            return "", 0
 
         text = parsed_results[0]["ParsedText"].strip()
-        return text
-
+        # Calculate average confidence if available
+        avg_conf = 100
+        if (
+            "TextOverlay" in parsed_results[0]
+            and "Lines" in parsed_results[0]["TextOverlay"]
+        ):
+            lines = parsed_results[0]["TextOverlay"]["Lines"]
+            confs = [
+                float(line.get("Words", [{}])[0].get("WordConfidence", 100))
+                for line in lines
+                if line.get("Words")
+            ]
+            if confs:
+                avg_conf = sum(confs) / len(confs)
+        return text, avg_conf
     except Exception as e:
         print(f"OCR processing failed: {str(e)}")
-        return ""
+        return "", 0
 
 
 def evaluate_single_answer(question_meta, student_answer):
@@ -666,6 +682,8 @@ def grade_pdf_folder():
         zip_file.save(temp_zip_path)
 
         # Extract all PDFs
+        from zipfile import ZipFile
+
         with ZipFile(temp_zip_path, "r") as zip_ref:
             zip_ref.extractall(extract_dir)
 
@@ -676,16 +694,12 @@ def grade_pdf_folder():
                 if f.lower().endswith(".pdf"):
                     pdf_files.append(os.path.join(root, f))
 
-        if not pdf_files:
-            return jsonify({"error": "No PDF files found in uploaded folder."}), 400
-
         # Get question IDs
         question_ids = [q["id"] for q in meta_data.get("questions", [])]
-        if not question_ids:
-            return jsonify({"error": "No questions configured"}), 400
 
-        # Process each PDF and collect results
         all_results = {}
+        global manual_checking_pdfs
+        manual_checking_pdfs = []
         for pdf_path in pdf_files:
             try:
                 images = pdf_to_images(pdf_path)
@@ -694,6 +708,32 @@ def grade_pdf_folder():
                         "error": "PDF conversion failed"
                     }
                     continue
+                # OCR confidence check (average over all pages)
+                confidences = []
+                for i, image in enumerate(images):
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".jpg", delete=False
+                    ) as tmp:
+                        image_path = tmp.name
+                        image.save(image_path, "JPEG")
+                    _, avg_conf = ocr_space_api(image_path, OCR_SPACE_API_KEY)
+                    confidences.append(avg_conf)
+                    try:
+                        os.remove(image_path)
+                    except:
+                        pass
+                pdf_avg_conf = (
+                    sum(confidences) / len(confidences) if confidences else 100
+                )
+                if pdf_avg_conf < 85:
+                    manual_checking_pdfs.append(os.path.basename(pdf_path))
+                    all_results[os.path.basename(pdf_path)] = {
+                        "manual_check_required": True,
+                        "avg_confidence": pdf_avg_conf,
+                        "message": "Low OCR confidence, needs manual checking.",
+                    }
+                    continue
+                # If confidence is good, proceed as usual
                 answers = segment_answers_with_gemini(images, question_ids)
                 results = []
                 total_marks_obtained = 0
@@ -771,7 +811,6 @@ def grade_pdf_folder():
                 }
 
         return jsonify({"pdf_results": all_results})
-
     except Exception as e:
         return jsonify({"error": f"Batch processing failed: {str(e)}"}), 500
     finally:
@@ -788,6 +827,12 @@ def grade_pdf_folder():
                 shutil.rmtree(extract_dir)
             except:
                 pass
+
+
+# Route to get manual checking list
+@app.route("/manual-check-list", methods=["GET"])
+def manual_check_list():
+    return jsonify({"manual_checking_pdfs": manual_checking_pdfs})
 
 
 if __name__ == "__main__":
