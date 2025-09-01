@@ -717,17 +717,20 @@
         }
       }
 
-      // Display results for batch PDF grading
+
+      // Display results for batch PDF grading, including confidence and manual check section
       function displayBatchResult(result) {
         const resultDiv = document.getElementById("result");
         if (result.error) {
           resultDiv.innerHTML = `<span class="status-error">❌ ${result.error}</span>`;
           return;
         }
+        let html = '';
         if (result.pdf_results) {
-          let html = '<div class="result-title"><i class="fas fa-folder"></i> Batch PDF Grading Results</div>';
+          html += '<div class="result-title"><i class="fas fa-folder"></i> Batch PDF Grading Results</div>';
           for (const [pdfName, pdfResult] of Object.entries(result.pdf_results)) {
-            html += `<div class="batch-pdf-result"><h4><i class="fas fa-file-pdf"></i> ${pdfName}</h4>`;
+            const conf = (pdfResult.avg_confidence !== undefined) ? ` <span class="confidence-score">(Confidence: ${pdfResult.avg_confidence.toFixed(1)}%)</span>` : '';
+            html += `<div class="batch-pdf-result"><h4><i class="fas fa-file-pdf"></i> ${pdfName}${conf}</h4>`;
             if (pdfResult.error) {
               html += `<span class="status-error">❌ ${pdfResult.error}</span></div>`;
               continue;
@@ -743,10 +746,40 @@
             }
             html += '</div>';
           }
-          resultDiv.innerHTML = html;
         } else {
-          resultDiv.innerHTML = '<span class="status-error">❌ No results found.</span>';
+          html += '<span class="status-error">❌ No results found.</span>';
         }
+
+        // Manual Check Section
+        html += '<div class="result-title" style="margin-top:2em;"><i class="fas fa-user-check"></i> Manual Check (Low Confidence PDFs)</div>';
+        html += '<div id="manual-check-list">Loading...</div>';
+        resultDiv.innerHTML = html;
+
+        // Fetch manual check list and display
+        fetch('/manual-check-list')
+          .then(res => res.json())
+          .then(data => {
+            const list = data.manual_checking_pdfs || [];
+            let mhtml = '';
+            if (list.length === 0) {
+              mhtml = '<span class="status-ok">No PDFs require manual checking.</span>';
+            } else {
+              mhtml = '<ul class="manual-check-list-ul">';
+              list.forEach(item => {
+                // item can be string (legacy) or {filename, avg_confidence}
+                if (typeof item === 'string') {
+                  mhtml += `<li><i class="fas fa-file-pdf"></i> ${item}</li>`;
+                } else {
+                  mhtml += `<li><i class="fas fa-file-pdf"></i> ${item.filename} <span class="confidence-score">(Confidence: ${item.avg_confidence.toFixed(1)}%)</span></li>`;
+                }
+              });
+              mhtml += '</ul>';
+            }
+            document.getElementById('manual-check-list').innerHTML = mhtml;
+          })
+          .catch(() => {
+            document.getElementById('manual-check-list').innerHTML = '<span class="status-error">Could not load manual check list.</span>';
+          });
       }
 
       // Tab switching: only one tab-content active at a time

@@ -676,6 +676,12 @@ def grade_pdf_folder():
     extract_dir = os.path.join(os.getcwd(), "uploads", "pdf_batch")
     os.makedirs(extract_dir, exist_ok=True)
 
+    all_results = {}
+    global manual_checking_pdfs
+    manual_checking_pdfs = []
+    manual_checking_confidences = (
+        []
+    )  # List of dicts: {"filename": ..., "avg_confidence": ...}
     try:
         # Save zip temporarily
         _, temp_zip_path = tempfile.mkstemp(suffix=".zip")
@@ -697,9 +703,6 @@ def grade_pdf_folder():
         # Get question IDs
         question_ids = [q["id"] for q in meta_data.get("questions", [])]
 
-        all_results = {}
-        global manual_checking_pdfs
-        manual_checking_pdfs = []
         for pdf_path in pdf_files:
             try:
                 images = pdf_to_images(pdf_path)
@@ -727,6 +730,12 @@ def grade_pdf_folder():
                 )
                 if pdf_avg_conf < 85:
                     manual_checking_pdfs.append(os.path.basename(pdf_path))
+                    manual_checking_confidences.append(
+                        {
+                            "filename": os.path.basename(pdf_path),
+                            "avg_confidence": pdf_avg_conf,
+                        }
+                    )
                     all_results[os.path.basename(pdf_path)] = {
                         "manual_check_required": True,
                         "avg_confidence": pdf_avg_conf,
@@ -789,6 +798,7 @@ def grade_pdf_folder():
                         "percentage": round(percentage, 2),
                         "grade_summary": f"{total_marks_obtained}/{total_max_marks} ({percentage:.1f}%)",
                     },
+                    "avg_confidence": pdf_avg_conf,
                 }
                 # Save to Google Sheet for each PDF
                 sheet_rows = [
@@ -810,6 +820,9 @@ def grade_pdf_folder():
                     "error": f"Processing failed: {str(e)}"
                 }
 
+        # Save confidences for manual check API
+        global manual_checking_confidences_global
+        manual_checking_confidences_global = manual_checking_confidences
         return jsonify({"pdf_results": all_results})
     except Exception as e:
         return jsonify({"error": f"Batch processing failed: {str(e)}"}), 500
@@ -829,10 +842,14 @@ def grade_pdf_folder():
                 pass
 
 
-# Route to get manual checking list
+# Route to get manual checking list (with confidence)
 @app.route("/manual-check-list", methods=["GET"])
 def manual_check_list():
-    return jsonify({"manual_checking_pdfs": manual_checking_pdfs})
+    global manual_checking_confidences_global
+    # Fallback for backward compatibility
+    if "manual_checking_confidences_global" not in globals():
+        return jsonify({"manual_checking_pdfs": manual_checking_pdfs})
+    return jsonify({"manual_checking_pdfs": manual_checking_confidences_global})
 
 
 if __name__ == "__main__":
