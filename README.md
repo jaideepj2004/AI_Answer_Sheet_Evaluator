@@ -59,4 +59,4 @@ AI Answer Sheet Evaluator is a web application designed to automate the evaluati
 - Ensure your Google service account has access to the target Google Sheet.
 
 ## License
-This project is for educational purposes. Please check the repository for license details.
+This project is for educational purposes.
