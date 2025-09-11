@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}Grade Smart - AI Answer Sheet Evaluator{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* Modern dark/light theme with gradient accents */
+      :root {
+        --primary: #2efb85;
+        --secondary: #1dc060;
+        --accent: #81ff9c;
+        --dark-bg: #0f0f0f;
+        --darker-bg: #0a0a0a;
+        --card-bg: #1a1a1a;
+        --text: #e0e0e0;
+        --text-light: #f0f0f0;
+        --border: #333;
+      }
+      .light-theme {
+        --primary: #1dc060;
+        --secondary: #2efb85;
+        --accent: #0f8b4b;
+        --dark-bg: #f7f7f7;
+        --darker-bg: #eaeaea;
+        --card-bg: #fff;
+        --text: #222;
+        --text-light: #333;
+        --border: #cfcfcf;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Segoe UI", "Roboto", sans-serif;
+        background: var(--dark-bg);
+        color: var(--text);
+        line-height: 1.6;
+        padding: 20px;
+        background-image: radial-gradient(
+          circle at 10% 20%,
+          rgba(20, 40, 20, 0.2) 0%,
+          rgba(0, 0, 0, 0) 50%
+        );
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 40px;
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .app-title {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+        color: var(--primary);
+      }
+      
+      .app-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.8;
+      }
+      
+      .main-nav {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      
+      .nav-link {
+        color: var(--text);
+        text-decoration: none;
+        padding: 10px 20px;
+        margin: 0 5px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+      }
+      
+      .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      .nav-link.active {
+        background: var(--secondary);
+        color: #000;
+      }
+      
+      .theme-toggle {
+        position: absolute;
+        top: 30px;
+        right: 30px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 10;
+      }
+      
+      .theme-switch {
+        width: 48px;
+        height: 24px;
+        background: var(--card-bg);
+        border-radius: 12px;
+        border: 1.5px solid var(--border);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      
+      .theme-switch input {
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+        cursor: pointer;
+      }
+      
+      .theme-slider {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 2px;
+        background: var(--primary);
+        transition: all 0.3s;
+      }
+      
+      input:checked + .theme-slider {
+        left: calc(100% - 22px);
+      }
+      
+      .card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        margin-bottom: 30px;
+        overflow: hidden;
+      }
+      
+      .card-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.2);
+      }
+      
+      .card-header h2 {
+        font-size: 1.5rem;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .card-header .description {
+        margin-top: 5px;
+        font-size: 0.9rem;
+        opacity: 0.7;
+      }
+      
+      .card-body {
+        padding: 20px;
+      }
+      
+      .tab-container {
+        width: 100%;
+      }
+      
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+      }
+      
+      .tab {
+        padding: 15px 25px;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .tab:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      
+      .tab.active {
+        border-bottom-color: var(--primary);
+        color: var(--primary);
+      }
+      
+      .tab-content {
+        display: none;
+        padding: 20px 0;
+      }
+      
+      .tab-content.active {
+        display: block;
+      }
+      
+      .upload-section {
+        padding: 20px;
+        border: 2px dashed var(--border);
+        border-radius: 8px;
+        text-align: center;
+      }
+      
+      label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+      
+      input[type="file"] {
+        background: var(--darker-bg);
+        padding: 15px;
+        width: 100%;
+        margin-bottom: 15px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      
+      select, textarea, input[type="text"], input[type="number"] {
+        background: var(--darker-bg);
+        padding: 12px 15px;
+        width: 100%;
+        margin-bottom: 15px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 16px;
+      }
+      
+      .hint {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        margin-top: -10px;
+        margin-bottom: 20px;
+      }
+      
+      button {
+        background: var(--primary);
+        color: black;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+      }
+      
+      button:hover {
+        background: var(--secondary);
+        transform: translateY(-2px);
+      }
+      
+      .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      
+      .btn-secondary {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: var(--text);
+      }
+      
+      .btn-icon {
+        padding: 8px;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .result-container {
+        margin-top: 30px;
+      }
+      
+      .result-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      #result {
+        padding: 15px;
+        background: var(--darker-bg);
+        border-radius: 8px;
+        min-height: 100px;
+      }
+      
+      .loading {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--primary);
+        animation: spin 1s ease-in-out infinite;
+      }
+      
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      
+      .status-error {
+        color: #ff5555;
+      }
+      
+      .status-ok {
+        color: var(--primary);
+      }
+      
+      .question-result {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        margin-bottom: 15px;
+        overflow: hidden;
+      }
+      
+      .question-header {
+        padding: 12px 15px;
+        background: rgba(0, 0, 0, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .question-content {
+        padding: 15px;
+        border-bottom: 1px solid var(--border);
+      }
+      
+      .question-rubric {
+        padding: 15px;
+      }
+      
+      .overall-score {
+        background: rgba(0, 0, 0, 0.2);
+        border-left: 4px solid var(--primary);
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        display: flex;
+        flex-wrap: wrap;
+      }
+      
+      .score-header {
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 1.2rem;
+      }
+      
+      .score-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+      
+      .score-label {
+        opacity: 0.7;
+      }
+      
+      .score-value {
+        font-weight: bold;
+      }
+      
+      .score-value.percentage {
+        color: var(--primary);
+      }
+      
+      .batch-pdf-result {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+      }
+      
+      .batch-pdf-result:last-child {
+        border-bottom: none;
+      }
+      
+      .confidence-score {
+        font-size: 0.9rem;
+        opacity: 0.7;
+        font-style: italic;
+      }
+      
+      .manual-check-list-ul {
+        list-style: none;
+      }
+      
+      .manual-check-list-ul li {
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.1);
+        margin-bottom: 8px;
+        border-radius: 4px;
+      }
+      
+      .question-config {
+        margin-top: 30px;
+      }
+      
+      .question-item {
+        background: var(--darker-bg);
+        border-radius: 8px;
+        margin-bottom: 20px;
+        overflow: hidden;
+      }
+      
+      .question-header {
+        display: flex;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 12px 15px;
+      }
+      
+      .question-body {
+        padding: 15px;
+      }
+      
+      .form-row {
+        display: flex;
+        gap: 15px;
+      }
+      
+      .form-group {
+        margin-bottom: 15px;
+        flex: 1;
+      }
+      
+      .form-section {
+        margin-bottom: 25px;
+      }
+      
+      .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 30px;
+      }
+      
+      .btn-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text);
+        text-decoration: none;
+        padding: 12px 25px;
+        border-radius: 6px;
+        transition: all 0.3s;
+      }
+      
+      .btn-nav:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+      }
+      
+      .processing-indicator {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+      }
+      
+      .processing-indicator p {
+        margin-top: 20px;
+        color: white;
+      }
+      
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: var(--primary);
+        animation: spin 1s ease-in-out infinite;
+      }
+      
+      .notification {
+        position: fixed;
+        bottom: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--card-bg);
+        color: var(--text);
+        padding: 15px 25px;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        transition: bottom 0.3s ease-in-out;
+        z-index: 1000;
+      }
+      
+      .notification.show {
+        bottom: 20px;
+      }
+      
+      .notification.success {
+        border-left: 4px solid var(--primary);
+      }
+      
+      .notification.error {
+        border-left: 4px solid #ff5555;
+      }
+      
+      footer {
+        text-align: center;
+        margin-top: 50px;
+        padding: 20px;
+        border-top: 1px solid var(--border);
+        opacity: 0.6;
+        font-size: 0.9rem;
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .tabs {
+          flex-wrap: wrap;
+        }
+        
+        .tab {
+          flex: 1 0 50%;
+        }
+        
+        .form-row {
+          flex-direction: column;
+        }
+        
+        .action-buttons {
+          flex-direction: column;
+          gap: 10px;
+        }
+        
+        .btn-nav {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    </style>
+    {% block styles %}{% endblock %}
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1 class="app-title">Grade Smart</h1>
+        <p class="app-subtitle">AI-Powered Answer Sheet Evaluation System</p>
+        
+        <nav class="main-nav">
+          <a href="/" class="nav-link {% if active_page == 'home' %}active{% endif %}">
+            <i class="fas fa-home"></i> Home
+          </a>
+          <a href="/config" class="nav-link {% if active_page == 'config' %}active{% endif %}">
+            <i class="fas fa-cog"></i> Configure
+          </a>
+          <a href="/upload" class="nav-link {% if active_page == 'upload' %}active{% endif %}">
+            <i class="fas fa-upload"></i> Upload
+          </a>
+          <a href="/results" class="nav-link {% if active_page == 'results' %}active{% endif %}">
+            <i class="fas fa-chart-bar"></i> Results
+          </a>
+        </nav>
+        
+        <div class="theme-toggle">
+          <i class="fas fa-moon"></i>
+          <label class="theme-switch">
+            <input type="checkbox" id="theme-toggle-checkbox">
+            <span class="theme-slider"></span>
+          </label>
+          <i class="fas fa-sun"></i>
+        </div>
+      </header>
+
+      <main>
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer>
+        <p>
+          Grade Smart - AI Answer Sheet Evaluation System • Powered by OCR and
+          AI Grading
+        </p>
+        <p>For educational purposes only</p>
+      </footer>
+    </div>
+
+    <script>
+      // Theme toggle logic
+      const themeToggle = document.getElementById("theme-toggle-checkbox");
+      function setTheme(theme) {
+        if (theme === "light") {
+          document.body.classList.add("light-theme");
+          localStorage.setItem("theme", "light");
+          themeToggle.checked = true;
+        } else {
+          document.body.classList.remove("light-theme");
+          localStorage.setItem("theme", "dark");
+          themeToggle.checked = false;
+        }
+      }
+      
+      // On load, set theme from localStorage or system
+      (function () {
+        const saved = localStorage.getItem("theme");
+        if (saved) setTheme(saved);
+        else if (
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: light)").matches
+        )
+          setTheme("light");
+      })();
+      
+      // Theme toggle event listener
+      themeToggle.addEventListener("change", function() {
+        setTheme(this.checked ? "light" : "dark");
+      });
+      
+      // Utility function for notifications
+      function showNotification(message, type) {
+        const notif = document.createElement('div');
+        notif.className = `notification ${type}`;
+        notif.innerHTML = `<p>${message}</p>`;
+        document.body.appendChild(notif);
+        
+        setTimeout(() => {
+          notif.classList.add('show');
+          setTimeout(() => {
+            notif.classList.remove('show');
+            setTimeout(() => notif.remove(), 300);
+          }, 3000);
+        }, 100);
+      }
+    </script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

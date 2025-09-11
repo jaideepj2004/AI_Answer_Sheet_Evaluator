@@ -1,0 +1,77 @@
+{% extends 'layout.html' %}
+
+{% set active_page = 'home' %}
+
+{% block title %}Grade Smart - Home{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fas fa-info-circle"></i> Welcome to Grade Smart</h2>
+    <p class="description">AI-powered answer sheet grading system</p>
+  </div>
+  
+  <div class="card-body">
+    <div style="text-align: center; padding: 20px 0;">
+      <i class="fas fa-robot" style="font-size: 3rem; color: var(--primary); margin-bottom: 15px;"></i>
+      <h3>Get Started with AI Grading</h3>
+      <p style="max-width: 600px; margin: 15px auto;">
+        Grade Smart uses advanced AI models to evaluate student answer sheets, 
+        providing fast, consistent, and objective grading for educators.
+      </p>
+      
+      <div class="btn-group" style="justify-content: center; margin-top: 20px;">
+        <a href="/config" class="btn-nav" style="text-decoration: none;">
+          <i class="fas fa-cog"></i> Configure Grading
+        </a>
+      </div>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <h3><i class="fas fa-graduation-cap"></i> How It Works</h3>
+      
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px;">
+        <div style="flex: 1; min-width: 250px; background: var(--darker-bg); padding: 20px; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div style="background: var(--primary); color: black; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">1</div>
+            <h4>Configure</h4>
+          </div>
+          <p>Set up your questions, rubrics, and grading criteria</p>
+        </div>
+        
+        <div style="flex: 1; min-width: 250px; background: var(--darker-bg); padding: 20px; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div style="background: var(--primary); color: black; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">2</div>
+            <h4>Upload</h4>
+          </div>
+          <p>Upload PDFs, images, or enter text from student answer sheets</p>
+        </div>
+        
+        <div style="flex: 1; min-width: 250px; background: var(--darker-bg); padding: 20px; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div style="background: var(--primary); color: black; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold;">3</div>
+            <h4>Results</h4>
+          </div>
+          <p>Receive AI-generated evaluations, marks, and feedback</p>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 40px;">
+      <h3><i class="fas fa-brain"></i> Our AI Technology</h3>
+      
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px;">
+        <div style="flex: 1; min-width: 300px;">
+          <h4><i class="fas fa-layer-group"></i> Google Gemini 1.5 Flash</h4>
+          <p>Used for segmenting answers from PDF images, our system utilizes Google's Gemini 1.5 Flash model to accurately identify and separate individual responses from scanned answer sheets.</p>
+        </div>
+        
+        <div style="flex: 1; min-width: 300px;">
+          <h4><i class="fas fa-network-wired"></i> Mixtral 8x7B</h4>
+          <p>Evaluates student answers against rubrics using the powerful Mixtral-8x7B-Instruct model, providing nuanced grading and detailed feedback aligned with instructor-defined criteria.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
