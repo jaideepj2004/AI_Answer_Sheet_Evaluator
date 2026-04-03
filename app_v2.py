@@ -62,10 +62,22 @@ meta_data = {"questions": [], "general_prompt": ""}  # List of question dictiona
 
 @app.route("/")
 def home():
-    return render_template("index1.html")
+    return render_template("index.html")
+
+@app.route("/config")
+def config_page():
+    return render_template("pages/config.html")
+
+@app.route("/upload")
+def upload_page():
+    return render_template("pages/upload.html")
+    
+@app.route("/results")
+def results_page():
+    return render_template("pages/results.html")
 
 
-@app.route("/set-meta", methods=["POST"])
+@app.route("/api/set-meta", methods=["POST"])
 def set_meta():
     data = request.json
     meta_data["questions"] = data.get("questions", [])
@@ -76,13 +88,18 @@ def set_meta():
         os.environ.get("TOGETHER_API_KEY"),
         os.environ.get("OCR_SPACE_API_KEY"),
     )
-    return jsonify({"status": "✅ Metadata set successfully."})
+    return jsonify({"success": True, "message": "Metadata set successfully."})
 
 
-@app.route("/grade", methods=["POST"])
+@app.route("/api/get-meta", methods=["GET"])
+def get_meta():
+    return jsonify(meta_data)
+
+@app.route("/api/grade", methods=["POST"])
 def grade():
     data = request.json
-    student_answer = data.get("student_answer", "").strip()
+    question_id = data.get("question_id", "")
+    student_answer = data.get("answer_text", "").strip()
 
     if not meta_data.get("questions"):
         return jsonify({"result": "❌ Please configure questions before grading."})
@@ -109,12 +126,12 @@ def grade():
         return jsonify({"result": "❌ Use /grade-pdf for multiple questions"})
 
 
-@app.route("/extract-text", methods=["POST"])
+@app.route("/api/extract-text", methods=["POST"])
 def extract_text():
-    if "image" not in request.files:
+    if "image_file" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    image_file = request.files["image"]
+    image_file = request.files["image_file"]
     image_path = "uploaded_image.png"
 
     try:
@@ -302,12 +319,12 @@ def segment_answers_with_gemini(images, question_ids):
 
 
 # Update the grade_pdf route to use Gemini 1.5 Flash
-@app.route("/grade-pdf", methods=["POST"])
+@app.route("/api/grade-pdf", methods=["POST"])
 def grade_pdf():
-    if "pdf" not in request.files:
+    if "pdf_file" not in request.files:
         return jsonify({"error": "No PDF uploaded"}), 400
 
-    pdf_file = request.files["pdf"]
+    pdf_file = request.files["pdf_file"]
     temp_path = None
 
     try:
@@ -666,7 +683,7 @@ def extract_marks_from_result(result_text, max_marks):
 from zipfile import ZipFile
 
 
-@app.route("/grade-pdf-folder", methods=["POST"])
+@app.route("/api/grade-pdf-folder", methods=["POST"])
 def grade_pdf_folder():
     if "pdf_folder" not in request.files:
         return jsonify({"error": "No folder (zip) uploaded"}), 400
@@ -843,7 +860,7 @@ def grade_pdf_folder():
 
 
 # Route to get manual checking list (with confidence)
-@app.route("/manual-check-list", methods=["GET"])
+@app.route("/api/manual-check-list", methods=["GET"])
 def manual_check_list():
     global manual_checking_confidences_global
     # Fallback for backward compatibility

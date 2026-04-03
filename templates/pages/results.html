@@ -1,0 +1,215 @@
+{% extends 'layout.html' %}
+
+{% set active_page = 'results' %}
+
+{% block title %}Grading Results - Grade Smart{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h2><i class="fas fa-chart-bar"></i> Grading Results</h2>
+    <p class="description">View and analyze evaluation results</p>
+  </div>
+  
+  <div class="card-body">
+    <div id="results-container">
+      <div class="no-results" style="text-align: center; padding: 40px 20px;">
+        <i class="fas fa-search" style="font-size: 3rem; color: var(--primary); opacity: 0.5; margin-bottom: 20px;"></i>
+        <h3>No Results Available</h3>
+        <p>Upload and grade answer sheets to see results here</p>
+        
+        <div style="margin-top: 30px;">
+          <a href="/upload" class="btn-nav">
+            <i class="fas fa-upload"></i> Go to Upload Page
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Results will be populated here dynamically -->
+    <div id="result-details" style="display: none;"></div>
+    
+    <!-- Manual Checking Section -->
+    <div class="manual-check-section" style="margin-top: 30px; display: none;">
+      <div class="result-title">
+        <i class="fas fa-user-check"></i> Manual Check (Low Confidence PDFs)
+      </div>
+      <div id="manual-check-list">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Options -->
+<div class="card" style="margin-top: 20px; display: none;" id="export-card">
+  <div class="card-header">
+    <h2><i class="fas fa-file-export"></i> Export Results</h2>
+    <p class="description">Download or save grading results</p>
+  </div>
+  
+  <div class="card-body">
+    <div class="btn-group">
+      <button onclick="exportToCSV()" class="btn-secondary">
+        <i class="fas fa-file-csv"></i> Export to CSV
+      </button>
+      <button onclick="exportToGoogleSheets()" class="btn-secondary">
+        <i class="fas fa-table"></i> Save to Google Sheets
+      </button>
+      <button onclick="printResults()" class="btn-secondary">
+        <i class="fas fa-print"></i> Print Results
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Check for results in session storage (from upload page)
+    const resultsStr = sessionStorage.getItem('gradeResults');
+    if (resultsStr) {
+      try {
+        const results = JSON.parse(resultsStr);
+        displayResults(results);
+      } catch (e) {
+        console.error('Error parsing results:', e);
+      }
+    }
+    
+    // Also fetch any manual check items
+    fetchManualCheckList();
+  });
+  
+  function displayResults(data) {
+    const resultsContainer = document.getElementById('results-container');
+    const resultDetails = document.getElementById('result-details');
+    const exportCard = document.getElementById('export-card');
+    const manualCheckSection = document.querySelector('.manual-check-section');
+    
+    // Clear "no results" message
+    resultsContainer.querySelector('.no-results').style.display = 'none';
+    
+    // Show export options
+    exportCard.style.display = 'block';
+    
+    // Show manual check section
+    manualCheckSection.style.display = 'block';
+    
+    let html = '';
+    
+    // Single PDF or text answer
+    if (data.results && !data.pdf_results) {
+      html += '<div class="result-title"><i class="fas fa-file-alt"></i> Answer Evaluation Results</div>';
+      
+      if (data.overall_score) {
+        const score = data.overall_score;
+        html += `<div class="overall-score"><div class="score-header"><strong>Overall:</strong></div><div class="score-details"><span class="score-label">Total Marks:</span> <span class="score-value">${score.total_marks_obtained}/${score.total_max_marks}</span> <span class="score-label">Percentage:</span> <span class="score-value percentage">${score.percentage}%</span> <span class="score-label">Grade Summary:</span> <span class="score-value">${score.grade_summary}</span></div></div>`;
+      }
+      
+      data.results.forEach((item) => {
+        html += `<div class="question-result"><div class="question-header"><div class="question-title">Question ${item.question_id}</div><div class="question-id">${item.marks_obtained || 0}/${item.max_marks || 0} marks</div></div><div class="question-content">${item.answer || "No answer found"}</div><div class="question-rubric"><strong>Evaluation:</strong><div>${item.result.replace(/\n/g, "<br>")}</div></div></div>`;
+      });
+    }
+    // Batch PDF results
+    else if (data.pdf_results) {
+      html += '<div class="result-title"><i class="fas fa-folder"></i> Batch PDF Grading Results</div>';
+      
+      for (const [pdfName, pdfResult] of Object.entries(data.pdf_results)) {
+        const conf = (pdfResult.avg_confidence !== undefined) ? ` <span class="confidence-score">(Confidence: ${pdfResult.avg_confidence.toFixed(1)}%)</span>` : '';
+        html += `<div class="batch-pdf-result"><h4><i class="fas fa-file-pdf"></i> ${pdfName}${conf}</h4>`;
+        
+        if (pdfResult.error) {
+          html += `<span class="status-error">❌ ${pdfResult.error}</span></div>`;
+          continue;
+        }
+        
+        if (pdfResult.overall_score) {
+          const score = pdfResult.overall_score;
+          html += `<div class="overall-score"><div class="score-header"><strong>Overall:</strong></div><div class="score-details"><span class="score-label">Total Marks:</span> <span class="score-value">${score.total_marks_obtained}/${score.total_max_marks}</span> <span class="score-label">Percentage:</span> <span class="score-value percentage">${score.percentage}%</span> <span class="score-label">Grade Summary:</span> <span class="score-value">${score.grade_summary}</span></div></div>`;
+        }
+        
+        if (pdfResult.results) {
+          pdfResult.results.forEach((item) => {
+            html += `<div class="question-result"><div class="question-header"><div class="question-title">Question ${item.question_id}</div><div class="question-id">${item.marks_obtained || 0}/${item.max_marks || 0} marks</div></div><div class="question-content">${item.answer || "No answer found"}</div><div class="question-rubric"><strong>Evaluation:</strong><div>${item.result.replace(/\n/g, "<br>")}</div></div></div>`;
+          });
+        }
+        
+        html += '</div>';
+      }
+    }
+    
+    resultDetails.innerHTML = html;
+    resultDetails.style.display = 'block';
+  }
+  
+  function fetchManualCheckList() {
+    fetch('/api/manual-check-list')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.manual_checking_pdfs || [];
+        let mhtml = '';
+        
+        if (list.length === 0) {
+          mhtml = '<span class="status-ok">No PDFs require manual checking.</span>';
+        } else {
+          mhtml = '<ul class="manual-check-list-ul">';
+          list.forEach(item => {
+            // item can be string (legacy) or {filename, avg_confidence}
+            if (typeof item === 'string') {
+              mhtml += `<li><i class="fas fa-file-pdf"></i> ${item}</li>`;
+            } else {
+              mhtml += `<li><i class="fas fa-file-pdf"></i> ${item.filename} <span class="confidence-score">(Confidence: ${item.avg_confidence.toFixed(1)}%)</span></li>`;
+            }
+          });
+          mhtml += '</ul>';
+        }
+        
+        document.getElementById('manual-check-list').innerHTML = mhtml;
+      })
+      .catch(() => {
+        document.getElementById('manual-check-list').innerHTML = '<span class="status-error">Could not load manual check list.</span>';
+      });
+  }
+  
+  // Export functions
+  function exportToCSV() {
+    // Implementation would go here
+    showNotification('Exporting to CSV...', 'success');
+  }
+  
+  function exportToGoogleSheets() {
+    // Implementation would go here
+    showNotification('Saving to Google Sheets...', 'success');
+  }
+  
+  function printResults() {
+    window.print();
+  }
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+  @media print {
+    header, footer, .card-header, #export-card, .action-buttons, .theme-toggle {
+      display: none !important;
+    }
+    
+    body {
+      background: white;
+      color: black;
+    }
+    
+    .card {
+      box-shadow: none;
+      border: none;
+    }
+    
+    .question-result {
+      border: 1px solid #ddd;
+      margin-bottom: 15px;
+      page-break-inside: avoid;
+    }
+  }
+</style>
+{% endblock %}

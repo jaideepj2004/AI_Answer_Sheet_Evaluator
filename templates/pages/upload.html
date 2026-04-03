@@ -1,0 +1,348 @@
+{% extends 'layout.html' %}
+
+{% set active_page = 'upload' %}
+
+{% block title %}Upload Answer Sheets - Grade Smart{% endblock %}
+
+{% block content %}
+<div class="card upload-card">
+    <div class="card-header">
+      <h2><i class="fas fa-upload"></i> Upload Answer Sheets</h2>
+      <p class="description">Upload PDF answer sheets or images for grading</p>
+    </div>
+
+    <div class="card-body">
+      <div class="tab-container">
+        <div class="tabs">
+          <div class="tab active" data-tab="single-pdf">
+            <i class="fas fa-file-pdf"></i> Single PDF
+          </div>
+          <div class="tab" data-tab="batch-pdf">
+            <i class="fas fa-folder"></i> Batch PDF
+          </div>
+          <div class="tab" data-tab="image-upload">
+            <i class="fas fa-image"></i> Image Upload
+          </div>
+          <div class="tab" data-tab="text-input">
+            <i class="fas fa-keyboard"></i> Text Input
+          </div>
+        </div>
+
+        <div class="tab-content-container">
+          <!-- Single PDF Upload -->
+          <div class="tab-content active" id="single-pdf-tab">
+            <div class="upload-section">
+              <label for="pdf_input">Upload Answer Sheet (PDF)</label>
+              <input type="file" id="pdf_input" accept=".pdf" />
+              <p class="hint">
+                Upload scanned PDF answer sheets for automated grading
+              </p>
+
+              <div class="btn-group">
+                <button onclick="uploadPDF()">
+                  <i class="fas fa-file-pdf"></i> Grade PDF Answer Sheet
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Batch PDF Upload -->
+          <div class="tab-content" id="batch-pdf-tab">
+            <div class="upload-section">
+              <label for="pdf_folder_input">Upload ZIP of Answer Sheets</label>
+              <input type="file" id="pdf_folder_input" accept=".zip" />
+              <p class="hint">
+                Upload ZIP file containing multiple PDF answer sheets for batch grading
+              </p>
+
+              <div class="btn-group">
+                <button onclick="uploadPDFFolder()">
+                  <i class="fas fa-folder"></i> Grade PDF Folder
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Image Upload -->
+          <div class="tab-content" id="image-upload-tab">
+            <div class="upload-section">
+              <label for="image_input">Upload Answer Sheet (Image)</label>
+              <input type="file" id="image_input" accept="image/*" />
+              <p class="hint">
+                Upload JPEG, PNG or other image formats for OCR extraction and grading
+              </p>
+
+              <div class="btn-group">
+                <button onclick="extractFromImage()">
+                  <i class="fas fa-image"></i> Extract & Grade Image
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text Input -->
+          <div class="tab-content" id="text-input-tab">
+            <div class="upload-section">
+              <label for="answer_input">Enter Answer Text</label>
+              <select id="question_select">
+                <option value="">Select question</option>
+                <!-- Will be populated from configuration -->
+              </select>
+              <textarea id="answer_input" rows="8" placeholder="Paste or type the answer text here..."></textarea>
+
+              <div class="btn-group">
+                <button onclick="gradeText()">
+                  <i class="fas fa-check"></i> Grade Text Answer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="processing-indicator" id="processing">
+    <div class="spinner"></div>
+    <p>Processing... Please wait</p>
+  </div>
+
+  <div class="action-buttons">
+    <a href="/config" class="btn-nav">
+      <i class="fas fa-arrow-left"></i> Back to Configuration
+    </a>
+    <a href="/results" class="btn-nav" id="view-results-btn" style="display:none;">
+      View Results <i class="fas fa-arrow-right"></i>
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+        const tabName = this.getAttribute('data-tab');
+        const tabContent = document.getElementById(tabName + '-tab');
+        if (tabContent) tabContent.classList.add('active');
+      });
+    });
+    
+    // Load question configuration for text input tab
+    loadQuestionConfig();
+  });
+  
+  function loadQuestionConfig() {
+    // Try to get from localStorage first (client-side cache)
+    const configStr = localStorage.getItem('gradeSmartConfig');
+    if (configStr) {
+      try {
+        const config = JSON.parse(configStr);
+        populateQuestionSelect(config.questions);
+        return;
+      } catch (e) {
+        console.error('Error parsing cached configuration:', e);
+      }
+    }
+    
+    // If not in localStorage, fetch from server
+    fetch('/api/get-meta')
+      .then(response => response.json())
+      .then(data => {
+        if (data.questions) {
+          populateQuestionSelect(data.questions);
+        }
+      })
+      .catch(error => {
+        console.error('Error loading configuration:', error);
+      });
+  }
+  
+  function populateQuestionSelect(questions) {
+    const select = document.getElementById('question_select');
+    select.innerHTML = '<option value="">Select question</option>';
+    
+    questions.forEach(q => {
+      const option = document.createElement('option');
+      option.value = q.id;
+      option.textContent = `Question ${q.id}: ${q.question_text.substring(0, 50)}${q.question_text.length > 50 ? '...' : ''}`;
+      select.appendChild(option);
+    });
+  }
+  
+  // File upload functions
+  function uploadPDF() {
+    const fileInput = document.getElementById('pdf_input');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      showNotification('Please select a PDF file to upload', 'error');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('pdf_file', fileInput.files[0]);
+    
+    showProcessing(true);
+    
+    fetch('/api/grade-pdf', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      showProcessing(false);
+      if (data.error) {
+        showNotification('Error: ' + data.error, 'error');
+      } else {
+        // Store results in session storage for the results page
+        sessionStorage.setItem('gradeResults', JSON.stringify(data));
+        showResultsButton(true);
+        showNotification('PDF processed successfully!', 'success');
+      }
+    })
+    .catch(error => {
+      showProcessing(false);
+      showNotification('Error: ' + error.message, 'error');
+    });
+  }
+  
+  function uploadPDFFolder() {
+    const fileInput = document.getElementById('pdf_folder_input');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      showNotification('Please select a ZIP file to upload', 'error');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('pdf_folder', fileInput.files[0]);
+    
+    showProcessing(true);
+    
+    fetch('/api/grade-pdf-folder', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      showProcessing(false);
+      if (data.error) {
+        showNotification('Error: ' + data.error, 'error');
+      } else {
+        // Store results in session storage for the results page
+        sessionStorage.setItem('gradeResults', JSON.stringify(data));
+        showResultsButton(true);
+        showNotification('Batch processing completed!', 'success');
+      }
+    })
+    .catch(error => {
+      showProcessing(false);
+      showNotification('Error: ' + error.message, 'error');
+    });
+  }
+  
+  function extractFromImage() {
+    const fileInput = document.getElementById('image_input');
+    if (!fileInput.files || fileInput.files.length === 0) {
+      showNotification('Please select an image file to upload', 'error');
+      return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image_file', fileInput.files[0]);
+    
+    showProcessing(true);
+    
+    fetch('/api/extract-text', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      showProcessing(false);
+      if (data.error) {
+        showNotification('Error: ' + data.error, 'error');
+      } else {
+        // Store results in session storage for the results page
+        sessionStorage.setItem('gradeResults', JSON.stringify(data));
+        showResultsButton(true);
+        showNotification('Image processed successfully!', 'success');
+      }
+    })
+    .catch(error => {
+      showProcessing(false);
+      showNotification('Error: ' + error.message, 'error');
+    });
+  }
+  
+  function gradeText() {
+    const questionId = document.getElementById('question_select').value;
+    const answerText = document.getElementById('answer_input').value.trim();
+    
+    if (!questionId) {
+      showNotification('Please select a question', 'error');
+      return;
+    }
+    
+    if (!answerText) {
+      showNotification('Please enter an answer to grade', 'error');
+      return;
+    }
+    
+    showProcessing(true);
+    
+    fetch('/api/grade', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        question_id: questionId,
+        answer_text: answerText
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      showProcessing(false);
+      if (data.error) {
+        showNotification('Error: ' + data.error, 'error');
+      } else {
+        // Store results in session storage for the results page
+        sessionStorage.setItem('gradeResults', JSON.stringify(data));
+        showResultsButton(true);
+        showNotification('Answer graded successfully!', 'success');
+      }
+    })
+    .catch(error => {
+      showProcessing(false);
+      showNotification('Error: ' + error.message, 'error');
+    });
+  }
+  
+  function showProcessing(show) {
+    document.getElementById('processing').style.display = show ? 'flex' : 'none';
+  }
+  
+  function showResultsButton(show) {
+    document.getElementById('view-results-btn').style.display = show ? 'inline-flex' : 'none';
+  }
+  
+  function showNotification(message, type) {
+    const notif = document.createElement('div');
+    notif.className = `notification ${type}`;
+    notif.innerHTML = `<p>${message}</p>`;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+      notif.classList.add('show');
+      setTimeout(() => {
+        notif.classList.remove('show');
+        setTimeout(() => notif.remove(), 300);
+      }, 3000);
+    }, 100);
+  }
+</script>
+{% endblock %}
